@@ -2,7 +2,7 @@ import cfgrib
 import typing as T
 import logging
 import numpy as np
-
+import timeit
 
 # Hack the cfgrib function that build lat/lon coordinates, to test the effect of loading 
 # the data without the performance bug
@@ -31,10 +31,14 @@ def build_geography_coordinates(
 
 cfgrib.dataset.build_geography_coordinates = build_geography_coordinates
 
+start = timeit.default_timer()
 # cfgrib.
 dss = cfgrib.open_datasets(
     "laf2020021715",
         backend_kwargs={"read_keys": ["typeOfLevel", "gridType"]},
         encode_cf=("time", "geography", "vertical"),
 )
+stop = timeit.default_timer()
+
+print('Time: ', stop - start) 
 
