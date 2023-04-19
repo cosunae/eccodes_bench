@@ -25,6 +25,13 @@
 #include <vector>
 #include "mpi.h"
 
+
+struct pool{
+    double* data;
+    size_t size;
+    size_t current_ptr;
+};
+
 int main(int argc, char** argv)
 {
     MPI_Init(&argc, &argv);
@@ -37,8 +44,8 @@ int main(int argc, char** argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     int err = 0;
     int nfields = 1350;
-    double *values = NULL;
-    size_t values_len_d = 1000000;
+    std::vector<pool> values = {{NULL,0,0}};
+
     size_t values_len= 0;
     size_t values_len_tot = 0;
     size_t i = 0, len = 0;
@@ -76,9 +83,6 @@ int main(int argc, char** argv)
  
     
     auto start = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-
-    values = (double*)malloc(values_len_d*nfields*sizeof(double));
-
 
     int cnt =0;
     /* create new handle from the first message in the file*/
@@ -134,17 +138,34 @@ int main(int argc, char** argv)
     CODES_CHECK(codes_get_size(h,"values",&values_len),0);
     values_len_tot += values_len;
 
+    if(values.back().data == NULL) {
+        values.back().size = values_len*10;
+        values.back().data = (double*)malloc(values.back().size*sizeof(double));
+        values.back().current_ptr = 0;
+    }
+
+
+    if(values.back().current_ptr + values_len > values.back().size) {
+        size_t newsize = values.back().size*2;
+        values.push_back({(double*)malloc(newsize*sizeof(double)), newsize, 0});
+    }
     /* get data values*/
-      CODES_CHECK(codes_get_double_array(h,"values",&(values[0]),&values_len),0);
+      CODES_CHECK(codes_get_double_array(h,"values",&(values.back().data[values.back().current_ptr]),&values_len),0);
  
+      values.back().current_ptr += values_len;
+
       codes_handle_delete(h);
       cnt++;
     }
 
     auto end = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    std::cout << "TIME :" << end - start << std::endl;
-    std::cout << "Total size:" << values_len_tot << std::endl;
-    free(values);
+    std::cout << "TIME : " << end - start << std::endl;
+    std::cout << "Total size : " << values_len_tot << std::endl;
+    std::cout << "N records : " << cnt << std::endl;
+    std::cout << "bandwidth : " << values_len_tot*4 / ((end-start)/1000.) / (1024.*1024.*1024.) <<  " GB/s" << std::endl;
+    for (int i=0; i < values.size(); ++i) {
+        free(values[i].data);
+    }
     fclose(in);
  
     return 0;
