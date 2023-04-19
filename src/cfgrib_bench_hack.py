@@ -38,7 +38,15 @@ dss = cfgrib.open_datasets(
         backend_kwargs={"read_keys": ["typeOfLevel", "gridType"]},
         encode_cf=("time", "geography", "vertical"),
 )
+for ds in dss:
+    ds.load()
 stop = timeit.default_timer()
 
+total = 0
+for ds in dss:
+    for f in ds:
+        total += np.prod(ds[f].data.shape)*ds[f].data.itemsize
 print('Time: ', stop - start) 
+print('Size: ', total/(1024.*1024.*1024.))
+print('Bandwidth: ', total/(1024.*1024.*1024.) / (stop-start), " GB/s")
 
